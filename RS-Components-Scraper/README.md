@@ -1,29 +1,48 @@
-# RS Components UK GraphQL Scraper
+# RS Components UK Scraper
 
 An asynchronous Python scraper that extracts product data from the sensors category on [RS Components UK](https://uk.rs-online.com) through its GraphQL endpoint.
 
 The scraper reverse-engineers the site's GraphQL requests to retrieve structured product information directly from the API rather than scraping rendered HTML pages.
 
-The whole category is about 2,273 pages (20 products each), roughly 45,000 products
+The whole category is over 2,000 pages (20 products each), roughly 40,000 products
 
 It uses asynchronous HTTP requests, concurrent pagination, rate limiting, automatic retries, and product deduplication to handle large category datasets efficiently.
 
 ## Features
 
 - GraphQL API reverse engineering.
-- Asynchronous HTTP requests using `curl_cffi`.
-- Chrome browser impersonation.
+- Asynchronous HTTP requests using `curl_cffi` (`AsyncSession`).
+- Chrome browser impersonation (TLS and HTTP/2 handshake).
 - Session cookie management through environment variables.
 - Concurrent page scraping using `asyncio.gather()`.
 - Concurrency control using `asyncio.Semaphore`.
 - Request rate limiting using `aiolimiter`.
 - Automatic retries for failed requests.
 - Automatic pagination based on API response metadata.
-- Product deduplication using unique product IDs.
 - Structured product extraction.
-- CSV data export using pandas.
+- CSV data export using `pandas`.
 - Logging to both terminal and file.
 - Raw API response inspection and JSON export.
+
+## How the scraper works
+
+The scraper follows these steps:
+
+- Initialises an asynchronous HTTP session with Chrome impersonation.
+- Loads cookies from `.env` and updates session headers.
+- Sends an initial request for page 1.
+- Reads `lastPage` from the first response so it knows how many pages to fetch
+- Creates concurrent requests for the remaining pages.
+- Uses a semaphore to limit concurrent requests to 10.
+- Uses an asynchronous rate limiter to cap requests at 5 per second.
+- Retries failed requests up to three times before giving up, with 1 second delay between attempts.
+- Extracts product attributes from each page.
+- Deduplicates products by `prod_id`.
+- Exports the extracted dataset to CSV.
+- Logs every page to the terminal and to `rs_scraper.log`
+- Failed requests are logged, and unsuccessful pages do not prevent the remaining pages from being processed.
+
+![Terminal Log](image.png)
 
 ## Tech Stack
 
@@ -34,16 +53,6 @@ It uses asynchronous HTTP requests, concurrent pagination, rate limiting, automa
 - pandas
 - python-dotenv
 - JSON
-
-## How it works
-
-- Sends the same `Browse` GraphQL query the website sends, one request per page
-- Reads `lastPage` from the first response so it knows how many pages to fetch
-- Uses `curl_cffi` with Chrome impersonation so requests look like a real browser
-- Runs asynchronously, but capped at 10 concurrent requests and 5 requests per second so it doesn't hammer the server
-- Retries a failed page up to 3 times before giving up on it
-- Removes duplicate products by `prod_id`
-- Logs every page to the terminal and to `rs_scraper.log`
 
 
 ## Extracted Data
@@ -132,69 +141,6 @@ RS_COOKIES='{"cookie_name":"cookie_value"}'
 
 The scraper loads the environment variables using `python-dotenv`, converts the cookie string into a Python dictionary using `json.loads()`, and updates the asynchronous session's cookie jar.
 
-## About dumps.py
-
-I used this earlier on to save my cookies into `.env` and to dump one raw API response into `rs.json` so I could look at the structure. I wrote it before making the scraper async, so it only works with my older synchronous version of `rs.py`. it isn't needed to run the scraper.
-
-## Scraping Workflow
-
-The scraper follows these steps:
-
-1. Initializes an asynchronous HTTP session with Chrome impersonation.
-2. Loads session cookies and configures request headers.
-3. Sends an initial request for page 1.
-4. Extracts the total number of pages from the GraphQL pagination response.
-5. Creates concurrent requests for the remaining pages.
-6. Uses a semaphore to control concurrent requests.
-7. Uses an asynchronous rate limiter to control request frequency.
-8. Retries failed requests up to three times, with a one-second delay between attempts.
-9. Extracts product attributes from each page.
-10. Deduplicates products using their unique product IDs.
-11. Exports the extracted dataset to CSV.
-
-## Concurrency and Rate Limiting
-
-The scraper uses the following configuration:
-
-```python
-semaphore = asyncio.Semaphore(10)
-limiter = AsyncLimiter(5, 1)
-```
-
-- **Semaphore:** Limits concurrent page requests to 10.
-- **Rate limiter:** Controls request frequency to approximately 5 requests per second.
-- **asyncio.gather():** Executes page requests concurrently and collects their results.
-- **Retry logic:** Attempts failed requests up to three times before giving up.
-
-Failed requests are logged, and unsuccessful pages do not prevent the remaining pages from being processed.
-
-## Pagination and Deduplication
-
-Pagination is handled dynamically using the API's `lastPage` value.
-
-The scraper fetches page 1 separately to determine the total number of pages, then schedules requests for the remaining pages.
-
-Product records are deduplicated using `prod_id` to prevent duplicate entries in the final dataset.
-
-## Logging
-
-The scraper uses Python's built-in logging module.
-
-Logs are written to:
-
-- Terminal (StreamHandler).
-- `rs_scraper.log` (FileHandler).
-
-Logging provides information about failed requests, retry attempts, page processing, and the total number of extracted products.
-
-## Raw API Response Export
-
-During API reverse engineering, a separate `dumps.py` utility was used to capture the complete GraphQL response.
-
-The response was serialized using `json.dumps()` with indentation and saved to `rs.json`.
-
-This provided a convenient way to inspect the nested JSON structure, identify product attributes, and understand the API response before implementing the asynchronous scraper.
-
 ## Usage
 
 Run the scraper:
@@ -209,7 +155,9 @@ Once scraping is complete, the extracted product dataset is saved as:
 sensors.csv
 ```
 
-The output contains the structured product attributes listed above.
+## About dumps.py
+
+During API reverse engineering, I used `dumps.py` to dump a raw API response into `rs.json` so I could inspect its structure. This made it easier to examine the nested JSON, identify product attributes, and understand the API response. I also used it to save my cookies into `.env`. I wrote it before making the scraper async, so it only works with my older synchronous version of `rs.py`. It isn't needed to run the scraper.
 
 ## Notes
 
