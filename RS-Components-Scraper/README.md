@@ -4,7 +4,9 @@ An asynchronous Python scraper that extracts product data from the sensors categ
 
 The scraper reverse-engineers the site's GraphQL requests to retrieve structured product information directly from the API rather than scraping rendered HTML pages.
 
-The whole category is over 2,000 pages (20 products each), roughly 40,000 products
+The Sensors category spans 2,273 pages with 20 listings per page, giving a theoretical total of 45,460 listings. After deduplicating by product ID, a full run returns 38,139 unique products.
+
+I first assumed the gap was caused by failed pages but it wasn't. Temporary 502 errors and empty responses are retried automatically, and every page eventually recovered. The difference comes from duplicate products appearing on more than one page.
 
 It uses asynchronous HTTP requests, concurrent pagination, rate limiting, automatic retries, and product deduplication to handle large category datasets efficiently.
 

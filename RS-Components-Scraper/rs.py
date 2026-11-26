@@ -90,7 +90,12 @@ async def main():
                             response = await session.post('https://uk.rs-online.com/web/c/api/datagraph/graphql', json=payload)
                             response.raise_for_status()
 
-                            return response.json()
+                            data = response.json()
+
+                            if not data['data']['browse']['records']:
+                                raise ValueError('No records returned')
+
+                            return data
 
                         except Exception as e:
                             if attempt == 2:
@@ -145,9 +150,6 @@ async def main():
         async def get_products():
             first_page = await fetch_data(1)
             last_page = first_page['data']['browse']['pagination']['lastPage']
-
-            
-            tasks = [fetch_data(page) for page in range(1, last_page + 1)]
 
             tasks = [fetch_data(page) for page in range(2, last_page + 1)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
