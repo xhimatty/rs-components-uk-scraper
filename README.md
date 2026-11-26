@@ -44,6 +44,8 @@ The scraper follows these steps:
 - Logs every page to the terminal and to `rs_scraper.log`
 - Failed requests are logged, and unsuccessful pages do not prevent the remaining pages from being processed.
 
+<img width="2736" height="1728" alt="Screenshot 2026-11-26 122440" src="https://github.com/user-attachments/assets/6db4192f-91b9-40fd-8c9c-0933d89bbe59" />
+
 
 ## Tech Stack
 
